@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import os
+import re
 
 def get_reference_cohort():
     """Get the cohort of subjects with valid cbcl_scr_dsm5_depress_r at three-year follow-up."""
@@ -65,6 +66,10 @@ def analyze_variable(df, column):
     
     # Count valid subjects (excluding 888s)
     n_valid = len(valid_data[valid_data != 888])
+    
+    # If no valid data, return None
+    if n_valid == 0:
+        return None
     
     # Count unique values (excluding 888s)
     n_unique = valid_data[valid_data != 888].nunique()
@@ -164,8 +169,14 @@ def analyze_domain(data_dir, domain_name):
             # Get list of excluded variables for this file
             file_exclusions = excluded_time_vars.get(file.name, [])
             
-            # Analyze each column
+            # Determine if this is a CBCL file
+            is_cbcl = file.name == 'mh_p_cbcl.csv'
+            
             for column in baseline_df.columns:
+                # For CBCL file, only include variables with 'q' in their name
+                if is_cbcl and 'q' not in column.lower():
+                    continue
+                    
                 # Skip redundant variables, ID columns, event column, metadata columns, and columns containing timestamp or language
                 if (not is_redundant_variable(column) and
                     column not in ['src_subject_id', 'eventname'] and 
