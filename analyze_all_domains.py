@@ -57,49 +57,51 @@ def is_redundant_variable(column_name):
     return False
 
 def analyze_variable(df, column):
-    # Define invalid values
+    # Define invalid values (excluding 888 which represents branching logic)
     invalid_values = [555, 999, 777, np.nan]
     
-    # Filter out invalid values
+    # Filter out invalid values but keep 888s for analysis
     valid_data = df[~df[column].isin(invalid_values)][column]
     
-    # Count valid subjects
-    n_valid = len(valid_data)
+    # Count valid subjects (excluding 888s)
+    n_valid = len(valid_data[valid_data != 888])
     
-    # Count unique values
-    n_unique = valid_data.nunique()
+    # Count unique values (excluding 888s)
+    n_unique = valid_data[valid_data != 888].nunique()
     
     # Check for low variance - if more than 95% of valid responses are the same value
-    value_counts = valid_data.value_counts()
-    most_common_count = value_counts.iloc[0]
-    if most_common_count / n_valid > 0.95:
-        return {
-            'n_valid': n_valid,
-            'n_unique': n_unique,
-            'value_range': None,
-            'var_type': 'low_variance'
-        }
+    value_counts = valid_data[valid_data != 888].value_counts()
+    if len(value_counts) > 0:  # Only check if there are valid responses
+        most_common_count = value_counts.iloc[0]
+        if most_common_count / n_valid > 0.95:
+            return {
+                'n_valid': n_valid,
+                'n_unique': n_unique,
+                'value_range': None,
+                'var_type': 'low_variance'
+            }
     
     # Determine if numeric
     is_numeric = pd.api.types.is_numeric_dtype(valid_data)
     
-    # Get range if numeric
+    # Get range if numeric (excluding 888s)
     value_range = None
     if is_numeric:
-        value_range = f"{valid_data.min()} - {valid_data.max()}"
+        valid_numeric_data = valid_data[valid_data != 888]
+        if len(valid_numeric_data) > 0:  # Only get range if there are valid responses
+            value_range = f"{valid_numeric_data.min()} - {valid_numeric_data.max()}"
     
-    # Determine variable type
+    # Determine variable type - just categorical or continuous
     var_type = "unknown"
+    
     if is_numeric:
-        if n_unique <= 5:
-            var_type = "ordinal"
-        else:
+        if n_unique > 10:  # More than 10 unique values = continuous
             var_type = "continuous"
-    else:
-        if n_unique <= 10:
+        else:  # 10 or fewer unique values = categorical
             var_type = "categorical"
-        else:
-            var_type = "text"
+    else:
+        # Skip text variables
+        return None
     
     return {
         'n_valid': n_valid,
@@ -175,6 +177,10 @@ def analyze_domain(data_dir, domain_name):
                     
                     analysis = analyze_variable(baseline_df, column)
                     
+                    # Skip if analysis returned None (text variable)
+                    if analysis is None:
+                        continue
+                    
                     # Print debugging info for variables that don't meet threshold or have low variance
                     if analysis['var_type'] == 'low_variance':
                         print(f"Variable {column} filtered out: Low variance (95% or more subjects have the same value)")
@@ -224,18 +230,15 @@ def main():
     # Print combined summary table
     if all_summary_rows:
         print("\nCombined Summary Table (Variables with >75% valid data across total population):")
-        print("{:<20} {:<20} {:<30} {:<10} {:<10} {:<15} {:<20} {:<15} {:<15}".format(
-            'Domain', 'Filename', 'Variable', 'N Valid', 'N Total', 'N Unique', 'Value Range', 'Category', 'Type'))
-        print("-" * 155)
+        print("{:<20} {:<20} {:<30} {:<10} {:<10} {:<15} {:<20} {:<15}".format(
+            'Domain', 'Filename', 'Variable', 'N Valid', 'N Total', 'N Unique', 'Value Range', 'Type'))
+        print("-" * 140)
         
         # Sort by domain and filename
         all_summary_rows.sort(key=lambda x: (x['domain'], x['filename']))
         
         for row in all_summary_rows:
-            # Determine category based on variable type
-            category = "Numerical" if row['var_type'] in ['ordinal', 'continuous'] else "Categorical"
-            
-            print("{:<20} {:<20} {:<30} {:<10} {:<10} {:<15} {:<20} {:<15} {:<15}".format(
+            print("{:<20} {:<20} {:<30} {:<10} {:<10} {:<15} {:<20} {:<15}".format(
                 row['domain'],
                 row['filename'], 
                 row['variable'], 
@@ -243,7 +246,6 @@ def main():
                 row['n_total'],
                 row['n_unique'],
                 str(row['value_range']) if row['value_range'] else 'N/A',
-                category,
                 row['var_type']))
         
         # Print summary statistics
