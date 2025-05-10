@@ -106,7 +106,8 @@ def analyze_variable(df, column):
     col_lower = column.lower()
 
     # Always treat demo_relig_v2 and demo_prnt_gender_id_v2 as categorical
-    if col_lower in ["demo_relig_v2", "demo_prnt_gender_id_v2"]:
+    if ('sex' in col_lower or 'gender' in col_lower or
+        col_lower in ["demo_relig_v2", "demo_prnt_gender_id_v2"]):
         var_type = "categorical"
     elif is_numeric:
         if 'race' in col_lower or 'ethnicity' in col_lower:
