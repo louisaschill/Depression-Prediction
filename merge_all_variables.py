@@ -14,7 +14,7 @@ def get_valid_variables():
     results_df = pd.read_csv(results_file)
     
     # Get unique combinations of domain, filename, and variable
-    valid_vars = results_df[['domain', 'filename', 'variable']].drop_duplicates()
+    valid_vars = results_df[['domain', 'filename', 'variable', 'var_type']].drop_duplicates()
     return valid_vars
 
 def get_reference_cohort():
@@ -47,6 +47,9 @@ def load_and_prepare_data(valid_vars, reference_cohort, depress_scores):
     merged_df = pd.DataFrame({'src_subject_id': reference_cohort})
     merged_df = pd.merge(merged_df, depress_scores, on='src_subject_id', how='left')
     
+    # Create a dictionary to store variable types
+    var_types = dict(zip(valid_vars['variable'], valid_vars['var_type']))
+    
     # Process each file
     for _, row in valid_vars.iterrows():
         domain_path = row['domain'].lower().replace(' & ', '-')
@@ -77,7 +80,7 @@ def load_and_prepare_data(valid_vars, reference_cohort, depress_scores):
             print(f"Error processing {file_path}: {str(e)}")
             continue
     
-    return merged_df
+    return merged_df, var_types
 
 def handle_missing_values(df):
     """Handle missing values in the dataset."""
@@ -89,8 +92,11 @@ def handle_missing_values(df):
     
     return df
 
-def preprocess_variables(df):
-    """Preprocess variables by one-hot encoding categorical variables and z-scoring continuous variables."""
+def preprocess_variables(df, var_types):
+    """Preprocess variables based on their types:
+    - Binary/Categorical: Mode imputation + One-hot encoding
+    - Continuous/Ordinal: Mean imputation + Z-scoring
+    """
     # Get the reference cohort and depression score columns
     id_cols = ['src_subject_id', '3_yr_depress_score']
     processed_df = df[id_cols].copy()
@@ -106,20 +112,31 @@ def preprocess_variables(df):
         if len(valid_data) == 0:
             continue
             
-        # Determine if variable is categorical (10 or fewer unique values)
-        n_unique = valid_data.nunique()
+        # Get variable type from our dictionary
+        var_type = var_types.get(col, 'unknown')
         
-        if n_unique <= 10:
+        if var_type in ['binary', 'categorical']:
+            # Mode imputation for binary/categorical variables
+            mode_val = df[col].mode()[0]
+            df[col] = df[col].fillna(mode_val)
+            
             # One-hot encode categorical variables
             dummies = pd.get_dummies(df[col], prefix=col, drop_first=True)
             processed_df = pd.concat([processed_df, dummies], axis=1)
-        else:
-            # Z-score continuous variables
-            scaler = StandardScaler()
-            # Fill NaN with mean before scaling
+            
+        elif var_type in ['continuous', 'ordinal']:
+            # Mean imputation for continuous/ordinal variables
             mean_val = df[col].mean()
-            scaled_values = scaler.fit_transform(df[col].fillna(mean_val).values.reshape(-1, 1))
+            df[col] = df[col].fillna(mean_val)
+            
+            # Z-score continuous/ordinal variables
+            scaler = StandardScaler()
+            scaled_values = scaler.fit_transform(df[col].values.reshape(-1, 1))
             processed_df[col] = scaled_values
+            
+        else:
+            print(f"Warning: Unknown variable type for {col}: {var_type}")
+            continue
     
     return processed_df
 
@@ -132,15 +149,17 @@ def main():
     
     # Load and prepare data
     print("Loading and preparing data...")
-    merged_df = load_and_prepare_data(valid_vars, reference_cohort, depress_scores)
+    merged_df, var_types = load_and_prepare_data(valid_vars, reference_cohort, depress_scores)
     
     # Handle missing values
     print("Handling missing values...")
     merged_df = handle_missing_values(merged_df)
     
     # Preprocess variables
-    print("Preprocessing variables (one-hot encoding categorical variables and z-scoring continuous variables)...")
-    processed_df = preprocess_variables(merged_df)
+    print("Preprocessing variables...")
+    print("- Binary/Categorical variables: Mode imputation + One-hot encoding")
+    print("- Continuous/Ordinal variables: Mean imputation + Z-scoring")
+    processed_df = preprocess_variables(merged_df, var_types)
     
     # Count complete cases
     complete_cases = processed_df.dropna().shape[0]
