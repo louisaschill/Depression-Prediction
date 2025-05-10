@@ -61,6 +61,11 @@ def analyze_variable(df, column):
     # Define invalid values (excluding 888 which represents branching logic)
     invalid_values = [555, 999, 777, np.nan]
     
+    # Special handling for family history yes/no variables
+    if 'fam_history' in column.lower() and 'yes_no' in column.lower():
+        # Replace 7 with NaN for family history yes/no variables
+        df[column] = df[column].replace(7, np.nan)
+    
     # Filter out invalid values but keep 888s for analysis
     valid_data = df[~df[column].isin(invalid_values)][column]
     
@@ -96,14 +101,24 @@ def analyze_variable(df, column):
         if len(valid_numeric_data) > 0:  # Only get range if there are valid responses
             value_range = f"{valid_numeric_data.min()} - {valid_numeric_data.max()}"
     
-    # Determine variable type - just categorical or continuous
+    # Determine variable type - binary, ordinal, continuous, or categorical
     var_type = "unknown"
-    
-    if is_numeric:
-        if n_unique > 10:  # More than 10 unique values = continuous
-            var_type = "continuous"
-        else:  # 10 or fewer unique values = categorical
+    col_lower = column.lower()
+
+    # Always treat demo_relig_v2 and demo_prnt_gender_id_v2 as categorical
+    if col_lower in ["demo_relig_v2", "demo_prnt_gender_id_v2"]:
+        var_type = "categorical"
+    elif is_numeric:
+        if 'race' in col_lower or 'ethnicity' in col_lower:
             var_type = "categorical"
+        elif n_unique == 2:
+            var_type = "binary"
+        elif n_unique > 10:
+            var_type = "continuous"
+        elif 3 <= n_unique <= 10:
+            var_type = "ordinal"
+        else:
+            var_type = "unknown"
     else:
         # Skip text variables
         return None
@@ -142,63 +157,54 @@ def analyze_domain(data_dir, domain_name):
     for file in files:
         print(f"\nProcessing {file.name}:")
         print("-" * 50)
-        
         try:
-            # Read the CSV file
             df = pd.read_csv(file)
-            
-            # Check if eventname column exists
             if 'eventname' not in df.columns:
                 print(f"Warning: No 'eventname' column found in {file.name}")
                 continue
-            
-            # Filter for baseline visit
             baseline_df = df[df['eventname'] == 'baseline_year_1_arm_1']
-            
-            # Filter for our reference cohort using src_subject_id
             baseline_df = baseline_df[baseline_df['src_subject_id'].isin(REFERENCE_COHORT)]
-            
-            # Get total number of subjects in our cohort
             total_subjects = len(baseline_df)
             print(f"Total number of subjects in reference cohort: {total_subjects}")
-            
             if total_subjects == 0:
                 print(f"Warning: No subjects from reference cohort found in {file.name}")
                 continue
-            
-            # Get list of excluded variables for this file
             file_exclusions = excluded_time_vars.get(file.name, [])
-            
-            # Determine if this is a CBCL or ASR file
+
+            # Identify first variable for each redundancy category
+            keep_vars = {}
+            for category, patterns in REDUNDANT_PATTERNS.items():
+                for col in baseline_df.columns:
+                    col_lower = col.lower()
+                    if any(pattern in col_lower for pattern in patterns):
+                        keep_vars[category] = col
+                        break
+
             is_cbcl_or_asr = file.name in ['mh_p_cbcl.csv', 'mh_p_asr.csv']
-            
             for column in baseline_df.columns:
+                col_lower = column.lower()
                 # For CBCL and ASR files, only include variables with 'q' in their name
-                if is_cbcl_or_asr and 'q' not in column.lower():
+                if is_cbcl_or_asr and 'q' not in col_lower:
                     continue
-                    
-                # Skip redundant variables, ID columns, event column, metadata columns, and columns containing timestamp or language
-                if (not is_redundant_variable(column) and
-                    column not in ['src_subject_id', 'eventname'] and 
-                    'timestamp' not in column.lower() and 
-                    'language' not in column.lower() and
+                # Always keep the first variable for each redundancy category
+                keep_redundant = any(column == v for v in keep_vars.values())
+                # Skip redundant variables, ID columns, event column, metadata columns, columns containing timestamp/language/lang/duration, and demo_brthdat_v2
+                if ((not is_redundant_variable(column) or keep_redundant) and
+                    column not in ['src_subject_id', 'eventname', 'demo_brthdat_v2'] and 
+                    'timestamp' not in col_lower and 
+                    'language' not in col_lower and
+                    'lang' not in col_lower and
+                    'duration' not in col_lower and
                     column not in file_exclusions and
                     not column.endswith('_nm') and
                     not column.endswith('_nt')):
-                    
                     analysis = analyze_variable(baseline_df, column)
-                    
-                    # Skip if analysis returned None (text variable)
                     if analysis is None:
                         continue
-                    
-                    # Print debugging info for variables that don't meet threshold or have low variance
                     if analysis['var_type'] == 'low_variance':
                         print(f"Variable {column} filtered out: Low variance (95% or more subjects have the same value)")
                     elif analysis['n_valid'] / len(REFERENCE_COHORT) <= 0.75:
                         print(f"Variable {column} filtered out: {analysis['n_valid']} valid entries out of {len(REFERENCE_COHORT)} ({analysis['n_valid']/len(REFERENCE_COHORT)*100:.1f}%)")
-                    
-                    # Check if valid data percentage meets threshold against reference cohort and not low variance
                     if analysis['n_valid'] / len(REFERENCE_COHORT) > 0.75 and analysis['var_type'] != 'low_variance':
                         summary_rows.append({
                             'domain': domain_name,
