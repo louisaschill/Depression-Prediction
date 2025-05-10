@@ -34,16 +34,23 @@ def get_reference_cohort():
     
     # Get subjectkeys with valid responses for cbcl_scr_dsm5_depress_r
     valid_subjects = three_year_df[~three_year_df['cbcl_scr_dsm5_depress_r'].isin(invalid_values)]['src_subject_id'].unique()
-    return valid_subjects
+    
+    # Get depression scores for valid subjects
+    depress_scores = three_year_df[three_year_df['src_subject_id'].isin(valid_subjects)][['src_subject_id', 'cbcl_scr_dsm5_depress_r']]
+    depress_scores = depress_scores.rename(columns={'cbcl_scr_dsm5_depress_r': '3_yr_depress_score'})
+    
+    return valid_subjects, depress_scores
 
-def load_and_prepare_data(valid_vars, reference_cohort):
+def load_and_prepare_data(valid_vars, reference_cohort, depress_scores):
     """Load and prepare data from all valid variables."""
-    # Initialize empty DataFrame with reference cohort
+    # Initialize empty DataFrame with reference cohort and depression scores
     merged_df = pd.DataFrame({'src_subject_id': reference_cohort})
+    merged_df = pd.merge(merged_df, depress_scores, on='src_subject_id', how='left')
     
     # Process each file
     for _, row in valid_vars.iterrows():
-        file_path = Path(f"data/core/{row['domain'].lower().replace(' & ', '-')}/{row['filename']}")
+        domain_path = row['domain'].lower().replace(' & ', '-')
+        file_path = Path(f"data/core/{domain_path}/{row['filename']}")
         if not file_path.exists():
             print(f"Warning: Could not find {file_path}")
             continue
@@ -120,12 +127,12 @@ def main():
     # Get valid variables
     valid_vars = get_valid_variables()
     
-    # Get reference cohort
-    reference_cohort = get_reference_cohort()
+    # Get reference cohort and depression scores
+    reference_cohort, depress_scores = get_reference_cohort()
     
     # Load and prepare data
     print("Loading and preparing data...")
-    merged_df = load_and_prepare_data(valid_vars, reference_cohort)
+    merged_df = load_and_prepare_data(valid_vars, reference_cohort, depress_scores)
     
     # Handle missing values
     print("Handling missing values...")
