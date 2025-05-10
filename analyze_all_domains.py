@@ -169,12 +169,12 @@ def analyze_domain(data_dir, domain_name):
             # Get list of excluded variables for this file
             file_exclusions = excluded_time_vars.get(file.name, [])
             
-            # Determine if this is a CBCL file
-            is_cbcl = file.name == 'mh_p_cbcl.csv'
+            # Determine if this is a CBCL or ASR file
+            is_cbcl_or_asr = file.name in ['mh_p_cbcl.csv', 'mh_p_asr.csv']
             
             for column in baseline_df.columns:
-                # For CBCL file, only include variables with 'q' in their name
-                if is_cbcl and 'q' not in column.lower():
+                # For CBCL and ASR files, only include variables with 'q' in their name
+                if is_cbcl_or_asr and 'q' not in column.lower():
                     continue
                     
                 # Skip redundant variables, ID columns, event column, metadata columns, and columns containing timestamp or language
