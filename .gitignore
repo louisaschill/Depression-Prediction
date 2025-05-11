@@ -1,0 +1,15 @@
+*.DS_Store
+results/variable_analysis_results.csv
+results/merged_variables.csv
+filtered_merged_variables.csv
+
+# If your raw data in the 'data/' directory is large or private,
+# you should uncomment the line below:
+# data/
+
+# If you want to ignore all .csv files in the root, you could use:
+# *.csv
+
+# If you want to ignore all .csv files in the results directory specifically:
+# results/*.csv 
+# (but we are already ignoring specific ones above, so this would be redundant for those) 
