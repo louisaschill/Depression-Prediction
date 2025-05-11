@@ -1,4 +1,10 @@
+# macOS specific
 *.DS_Store
+
+# Python specific
+__pycache__/
+
+# Data files - ignored by default, should be managed by user if needed
 results/variable_analysis_results.csv
 results/merged_variables.csv
 filtered_merged_variables.csv

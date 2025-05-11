@@ -3,17 +3,15 @@ import pandas as pd
 import numpy as np
 import json
 from pathlib import Path
+# Import from question_mappings
+from question_mappings import QUESTION_MAPPINGS, Z_SCORE_FOR_YES, Z_SCORE_FOR_NO, get_question_by_id
 
 # --- Configuration ---
 MODEL_PATH = Path('results/random_forest_model.joblib')
 FEATURE_NAMES_PATH = Path('results/model_feature_names.json')
 
-# Top 10 features identified from Random Forest feature importances
-# (as an example, a real application might make this configurable)
-SELECTED_INPUT_FEATURES = [
-    'cbcl_q86_p', 'cbcl_q24_p', 'cbcl_q04_p', 'cbcl_q100_p', 'cbcl_q71_p',
-    'cbcl_q44_p', 'cbcl_q112_p', 'cbcl_q103_p', 'cbcl_q88_p', 'cbcl_q03_p'
-]
+# DEFAULT_SELECTABLE_FEATURES will now be the list of all features defined in QUESTION_MAPPINGS
+DEFAULT_SELECTABLE_FEATURES = [q_map['id'] for q_map in QUESTION_MAPPINGS]
 
 # --- Load Model and Feature Names ---
 # These are loaded once when the module is imported for efficiency.
@@ -43,9 +41,9 @@ def get_prediction(input_data: dict):
     Predicts depression risk based on user input for selected features.
 
     Args:
-        input_data (dict): A dictionary where keys are feature names 
-                           (subset of SELECTED_INPUT_FEATURES or all of them)
-                           and values are their corresponding Z-scored numerical inputs.
+        input_data (dict): A dictionary where keys are feature names/IDs 
+                           (e.g., 'cbcl_q86_p') and values are their corresponding
+                           'Yes' or 'No' string answers.
 
     Returns:
         tuple: (predicted_class, prediction_probabilities) or (None, None) if an error occurs.
@@ -56,25 +54,33 @@ def get_prediction(input_data: dict):
         print("Error: Model or feature names not loaded. Cannot make predictions.")
         return None, None
 
+    # Convert Yes/No answers to Z-scores
+    z_scored_inputs = {}
+    for feature_id, yes_no_answer in input_data.items():
+        question_map = get_question_by_id(feature_id)
+        if question_map:
+            if yes_no_answer == 'Yes':
+                z_scored_inputs[feature_id] = question_map['z_score_yes']
+            elif yes_no_answer == 'No':
+                z_scored_inputs[feature_id] = question_map['z_score_no']
+            else:
+                print(f"Warning: Invalid answer '{yes_no_answer}' for feature '{feature_id}'. Expected 'Yes' or 'No'. Assuming 0 (mean).")
+                # If an invalid answer is passed, it won't be in z_scored_inputs, so it will default to 0 in sample_df
+        else:
+            print(f"Warning: No mapping found for feature_id '{feature_id}' in QUESTION_MAPPINGS. It will be ignored for Z-score conversion.")
+
+
     # Create a DataFrame for the single sample, with all model features, initialized to 0
     # Using 0 as a default because the CBCL features were Z-scored (mean-imputed then Z-scored)
-    # so 0 represents the mean for those features.
-    # For any one-hot encoded features (if they were part of ALL_MODEL_FEATURES and not CBCL),
-    # 0 is also a safe default, meaning that category is not present.
+    # so 0 represents the mean for those features. Features not answered by the user (and thus not
+    # in z_scored_inputs after Yes/No conversion) will also default to 0.
     sample_df = pd.DataFrame(0, index=[0], columns=ALL_MODEL_FEATURES)
 
-    # Fill in the values provided by the user
-    # We assume input_data keys are valid feature names and values are already preprocessed (Z-scored)
-    for feature, value in input_data.items():
+    # Fill in the Z-scored values derived from user's Yes/No answers
+    for feature, z_value in z_scored_inputs.items():
         if feature in sample_df.columns:
-            try:
-                sample_df[feature] = float(value) # Ensure value is float for safety
-            except ValueError:
-                print(f"Warning: Could not convert value '{value}' for feature '{feature}' to float. Using 0.")
-                # Keep default of 0 if conversion fails
-        else:
-            # This should ideally not happen if input_data only contains known features
-            print(f"Warning: Unknown feature '{feature}' in input_data. It will be ignored.")
+            sample_df[feature] = z_value # z_value is already a float
+        # No warning needed here for unknown features in z_scored_inputs, as it's derived from QUESTION_MAPPINGS
 
     # Ensure the order of columns in sample_df matches ALL_MODEL_FEATURES (it should by construction)
     # Convert to NumPy array for the model
@@ -94,30 +100,19 @@ if __name__ == "__main__":
     if RF_MODEL is None or not ALL_MODEL_FEATURES:
         print("Cannot run example because model or feature names are not loaded.")
     else:
-        # Example: Provide Z-scored inputs for the top 10 selected features.
-        # For a real application, these values would come from a user interface.
-        # Using placeholder Z-score values (e.g., average, or one std dev above/below mean)
-        example_inputs = {
-            'cbcl_q86_p': 0.5,   # Example: 0.5 standard deviations above the mean
-            'cbcl_q24_p': -0.2,  # Example: 0.2 standard deviations below the mean
-            'cbcl_q04_p': 0.0,   # Example: at the mean
-            'cbcl_q100_p': 1.0,  
-            'cbcl_q71_p': -1.5, 
-            'cbcl_q44_p': 0.3,  
-            'cbcl_q112_p': 0.0,  
-            'cbcl_q103_p': -0.1, 
-            'cbcl_q88_p': 2.0,  
-            'cbcl_q03_p': 0.7   
+        # Example: Provide Yes/No answers for a subset of the DEFAULT_SELECTABLE_FEATURES.
+        example_yes_no_inputs = {
+            DEFAULT_SELECTABLE_FEATURES[0]: 'Yes', # e.g., 'cbcl_q86_p'
+            DEFAULT_SELECTABLE_FEATURES[1]: 'No',  # e.g., 'cbcl_q24_p'
+            DEFAULT_SELECTABLE_FEATURES[2]: 'Yes', # e.g., 'cbcl_q04_p'
+            # Not providing answers for all 20, defaults will be used for the rest
         }
         
-        print(f"\nUsing the following {len(SELECTED_INPUT_FEATURES)} features for prediction example:")
-        for f in SELECTED_INPUT_FEATURES:
-            print(f"  - {f}: {example_inputs.get(f, '(default will be used if not in example_inputs)')}")
+        print(f"\nUsing the following {len(example_yes_no_inputs)} Yes/No inputs for prediction example:")
+        for f_id, answer in example_yes_no_inputs.items():
+            print(f"  - Feature ID {f_id}: {answer}")
 
-        # Ensure our example inputs only contain the defined SELECTED_INPUT_FEATURES for this basic example
-        valid_example_inputs = {k: v for k, v in example_inputs.items() if k in SELECTED_INPUT_FEATURES}
-
-        predicted_class, probabilities = get_prediction(valid_example_inputs)
+        predicted_class, probabilities = get_prediction(example_yes_no_inputs)
 
         if predicted_class is not None and probabilities is not None:
             print(f"\nExample Prediction:")
@@ -128,14 +123,14 @@ if __name__ == "__main__":
 
         # Example of providing fewer than the 10 selected inputs
         # (the function will use defaults for those not provided)
-        print("\n--- Example with fewer inputs (defaults used for missing) ---")
-        partial_example_inputs = {
-            'cbcl_q86_p': 1.5,   
-            'cbcl_q04_p': -0.5,
-            'cbcl_q100_p': 0.8
+        print("\n--- Example with a different set of Yes/No inputs ---")
+        another_example_inputs = {
+            DEFAULT_SELECTABLE_FEATURES[0]: 'No',
+            DEFAULT_SELECTABLE_FEATURES[3]: 'Yes', 
+            DEFAULT_SELECTABLE_FEATURES[5]: 'No',
         }
-        print(f"\nProviding inputs for: {list(partial_example_inputs.keys())}")
-        predicted_class_partial, probabilities_partial = get_prediction(partial_example_inputs)
+        print(f"\nProviding inputs for: {list(another_example_inputs.keys())}")
+        predicted_class_partial, probabilities_partial = get_prediction(another_example_inputs)
         if predicted_class_partial is not None and probabilities_partial is not None:
             print(f"\nPartial Input Example Prediction:")
             print(f"  Predicted Class: {predicted_class_partial}")
