@@ -1,41 +1,103 @@
 # question_mappings.py
 
-# This file stores the mapping between user-friendly questions and model features,
-# including how Yes/No answers translate to Z-scores for the model.
+"""
+Mappings from feature IDs to user-facing questions, scales, and Z-score conversions.
+This version is updated to use 12 specific questions.
+"""
 
-# Z-score assignments for Yes/No answers (simplified initial approach)
-Z_SCORE_FOR_YES = 0.75
-Z_SCORE_FOR_NO = -0.75
-
-# Top 20 features from the Random Forest model that will be used for the questionnaire
-# For actual CBCL items, the question_text should be the specific item wording.
-# The current question_text entries are generic placeholders.
 QUESTION_MAPPINGS = [
-    {'id': 'cbcl_q86_p', 'question_text': 'Regarding CBCL item Q86: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q24_p', 'question_text': 'Regarding CBCL item Q24: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q04_p', 'question_text': 'Regarding CBCL item Q04: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q100_p', 'question_text': 'Regarding CBCL item Q100: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q71_p', 'question_text': 'Regarding CBCL item Q71: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q44_p', 'question_text': 'Regarding CBCL item Q44: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q112_p', 'question_text': 'Regarding CBCL item Q112: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q103_p', 'question_text': 'Regarding CBCL item Q103: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q88_p', 'question_text': 'Regarding CBCL item Q88: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q03_p', 'question_text': 'Regarding CBCL item Q03: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q12_p', 'question_text': 'Regarding CBCL item Q12: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q78_p', 'question_text': 'Regarding CBCL item Q78: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q32_p', 'question_text': 'Regarding CBCL item Q32: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q87_p', 'question_text': 'Regarding CBCL item Q87: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q08_p', 'question_text': 'Regarding CBCL item Q08: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q50_p', 'question_text': 'Regarding CBCL item Q50: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q56f_p', 'question_text': 'Regarding CBCL item Q56F: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q09_p', 'question_text': 'Regarding CBCL item Q09: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q56b_p', 'question_text': 'Regarding CBCL item Q56B: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
-    {'id': 'cbcl_q35_p', 'question_text': 'Regarding CBCL item Q35: Does the child often exhibit this behavior/trait?', 'z_score_yes': Z_SCORE_FOR_YES, 'z_score_no': Z_SCORE_FOR_NO},
+    {
+        'id': 'cbcl_q24_p',
+        'question_text': '**How often does your child have a poor appetite?**',
+        'scale_type': '012',
+        'options': {'Never': 0, 'Sometimes': 1, 'Often': 2},
+        'z_score_map': {0: -0.75, 1: 0.0, 2: 0.75}
+    },
+    {
+        'id': 'sleepdisturb4_p',
+        'question_text': '**How often does your child have difficulty falling asleep?**',
+        'scale_type': '012',
+        'options': {'Rarely/Never': 0, 'Sometimes': 1, 'Often/Always': 2},
+        'z_score_map': {0: -0.75, 1: 0.0, 2: 0.75}
+    },
+    {
+        'id': 'cbcl_q76_p',
+        'question_text': '**Does your child generally sleep less than other children their age?**',
+        'scale_type': 'YN',
+        'options': {'Yes': 'Yes', 'No': 'No'},
+        'z_score_map': {'Yes': 0.75, 'No': -0.75} # Assuming sleeping less is a risk factor
+    },
+    {
+        'id': 'cbcl_q102_p',
+        'question_text': '**How often does your child seem to lack energy or appear slow-moving?**',
+        'scale_type': '012',
+        'options': {'Never': 0, 'Sometimes': 1, 'Often': 2},
+        'z_score_map': {0: -0.75, 1: 0.0, 2: 0.75}
+    },
+    {
+        'id': 'cbcl_q01_p',
+        'question_text': '**How often does your child act much younger than their actual age?**',
+        'scale_type': '012',
+        'options': {'Never': 0, 'Sometimes': 1, 'Often': 2},
+        'z_score_map': {0: -0.75, 1: 0.0, 2: 0.75}
+    },
+    {
+        'id': 'cbcl_q61_p', # cbcl_q66_p was "Poor school work"
+        'question_text': '**How often is your child\'s school work considered poor?**',
+        'scale_type': '012',
+        'options': {'Never': 0, 'Sometimes': 1, 'Often': 2},
+        'z_score_map': {0: -0.75, 1: 0.0, 2: 0.75}
+    },
+    {
+        'id': 'famhx_ss_parent_prf_p',
+        'question_text': '**As the parent completing this, have you been diagnosed with a psychiatric condition by a professional?**',
+        'scale_type': 'YN',
+        'options': {'Yes': 'Yes', 'No': 'No'},
+        'z_score_map': {'Yes': 0.75, 'No': -0.75} # Assuming parent condition is a risk factor for child
+    },
+    {
+        'id': 'kbi_p_conflict',
+        'question_text': '**How would you rate the typical level of conflict within your immediate family?**',
+        'scale_type': '012', # Mapping to Low/Medium/High
+        'options': {'Low': 0, 'Medium': 1, 'High': 2},
+        'z_score_map': {0: -0.75, 1: 0.0, 2: 0.75} # Assuming High conflict is riskier
+    },
+    {
+        'id': 'ksads_asd_raw_560_p',
+        'question_text': '**Does your child often engage in repetitive behaviors (e.g., movements, routines, or speech)?**',
+        'scale_type': 'YN',
+        'options': {'Yes': 'Yes', 'No': 'No'},
+        'z_score_map': {'Yes': 0.75, 'No': -0.75} # Assuming repetitive behavior is a risk factor
+    },
+    {
+        'id': 'asr_q120_p',
+        'question_text': '**As a parent, do you often find yourself driving significantly faster than the speed limit or conditions allow?**',
+        'scale_type': 'YN',
+        'options': {'Yes': 'Yes', 'No': 'No'},
+        'z_score_map': {'Yes': 0.5, 'No': -0.5} # Assuming this parent behavior might be a moderate risk factor
+    },
+    {
+        'id': 'asr_q116_p',
+        'question_text': '**As a parent, do you find yourself getting upset more easily or intensely than you would like?**',
+        'scale_type': 'YN',
+        'options': {'Yes': 'Yes', 'No': 'No'},
+        'z_score_map': {'Yes': 0.75, 'No': -0.75} # Assuming this parent trait is a risk factor
+    },
+    {
+        'id': 'sai_ss_basket_nyr_p',
+        'question_text': '**Has your child participated in playing basketball in the past year?**',
+        'scale_type': 'YN',
+        'options': {'Yes': 'Yes', 'No': 'No'},
+        'z_score_map': {'Yes': -0.25, 'No': 0.25} # Assuming Yes (activity) is slightly protective
+    }
 ]
 
-def get_question_by_id(feature_id):
-    """Helper function to retrieve a question mapping by its ID."""
-    for q_map in QUESTION_MAPPINGS:
-        if q_map['id'] == feature_id:
-            return q_map
-    return None 
+# The get_question_by_id function is no longer needed by prediction_calculator_logic.py
+# as it now uses a direct lookup from a dictionary generated from QUESTION_MAPPINGS.
+# If it were needed elsewhere, it would look like this:
+# def get_question_by_id(feature_id):
+#     """Helper function to retrieve a question mapping by its ID."""
+#     for q_map in QUESTION_MAPPINGS:
+#         if q_map['id'] == feature_id:
+#             return q_map
+#     return None
