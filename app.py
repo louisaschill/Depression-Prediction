@@ -324,25 +324,59 @@ st.markdown("""
 
 # --- Questionnaire Section ---
 if not st.session_state.show_results:
-    # ... (Questionnaire form logic remains the same) ...
     col1, col2, col3 = st.columns([1, 3, 1])
     with col2:
         with st.form(key='prediction_form'):
             st.subheader("Parent Questionnaire")
+            # QUESTION_MAPPINGS is imported from question_mappings.py
+            # The order of questions will be determined by the order in that list.
+            
             for i, question_map in enumerate(QUESTION_MAPPINGS):
                 feature_id = question_map['id']
                 question_text = question_map['question_text']
-                options_dict = question_map['options']
+                options_dict = question_map['options'] # For radio, this is {label: value}; for continuous, {min, max, default, step}
+                scale_type = question_map['scale_type']
+
                 st.markdown(f"{i+1}. {question_text}", unsafe_allow_html=True)
-                radio_options = list(options_dict.keys())
-                selected_label = st.radio(
-                    label=f"Select an option for {feature_id}",
-                    options=radio_options,
-                    key=f"{feature_id}_radio",
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    index=None
-                )
+
+                if scale_type == 'Continuous':
+                    min_val = options_dict.get('min_value', 11)
+                    max_val = options_dict.get('max_value', 55)
+                    # Get current answer from session_state.answers or use default from options_dict
+                    current_answer_val = st.session_state.answers.get(feature_id, options_dict.get('default_value', (min_val + max_val) // 2))
+                    
+                    selected_value = st.number_input(
+                        label=f"Enter value for {feature_id}", # Label is collapsed
+                        min_value=min_val,
+                        max_value=max_val,
+                        value=int(current_answer_val), # Ensure value is int if loaded from session
+                        step=options_dict.get('step', 1),
+                        key=f"{feature_id}_input", # Unique key for number_input
+                        label_visibility="collapsed"
+                    )
+                    # Store in a temporary session state key that matches the input widget to retrieve later
+                    # This is handled by st.form automatically via the key.
+                else: # Handles 'Binary', '3-point', '5-point' with st.radio
+                    radio_options_labels = list(options_dict.keys())
+                    # Get current *value* from session_state.answers to find the *label* for index
+                    current_answer_value = st.session_state.answers.get(feature_id)
+                    current_radio_index = None
+                    if current_answer_value is not None:
+                        for label, val in options_dict.items():
+                            if val == current_answer_value:
+                                if label in radio_options_labels:
+                                    current_radio_index = radio_options_labels.index(label)
+                                break
+                    
+                    selected_label = st.radio(
+                        label=f"Select an option for {feature_id}", # Label is collapsed
+                        options=radio_options_labels,
+                        key=f"{feature_id}_radio", # Unique key for radio
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        index=current_radio_index # Pre-select if already answered
+                    )
+
                 if i < len(QUESTION_MAPPINGS) - 1:
                     st.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 0.5rem;'>", unsafe_allow_html=True)
 
@@ -351,20 +385,37 @@ if not st.session_state.show_results:
             if submitted:
                 collected_answers = {}
                 all_answered = True
-                for question_map in QUESTION_MAPPINGS:
+                for question_map in QUESTION_MAPPINGS: # Iterate again to collect based on type
                     feature_id = question_map['id']
                     options_dict = question_map['options']
-                    selected_label = st.session_state.get(f"{feature_id}_radio")
-                    if selected_label is not None:
-                        collected_answers[feature_id] = options_dict[selected_label]
-                    else:
-                        all_answered = False
-                        break
+                    scale_type = question_map['scale_type']
 
+                    if scale_type == 'Continuous':
+                        # Value from number_input is directly its numerical value
+                        val_from_input = st.session_state.get(f"{feature_id}_input")
+                        if val_from_input is not None: # Should always have a value from number_input
+                            collected_answers[feature_id] = val_from_input
+                        else:
+                            # This case should ideally not be hit if number_input has a default
+                            all_answered = False 
+                            st.warning(f"Please ensure a value is entered for: {question_map['question_text']}", icon="⚠️")
+                            break
+                    else: # Radio button based inputs
+                        selected_label = st.session_state.get(f"{feature_id}_radio")
+                        if selected_label is not None:
+                            collected_answers[feature_id] = options_dict[selected_label] # Map label back to value
+                        else:
+                            all_answered = False # A radio option was not selected
+                            st.warning(f"Please answer question: {question_map['question_text']}", icon="⚠️")
+                            break
+                
                 if not all_answered:
+                    st.session_state.answers = collected_answers # Store partially collected answers for pre-filling
                     st.warning("Please answer all questions before submitting.", icon="⚠️")
+                    # No rerun here, let user fix on the same page
                 else:
                     st.session_state.answers = collected_answers
+                    # Assuming get_prediction can handle the raw numerical values collected
                     pred_class, pred_probs = get_prediction(st.session_state.answers)
                     if pred_class is not None and pred_probs is not None:
                         st.session_state.prediction_class = pred_class

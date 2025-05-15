@@ -25,10 +25,10 @@ Use this scale:
 def load_baseline():
     df = pd.read_csv("filtered_merged_variables.csv")
     top_vars = [
-        'cbcl_q24_p', 'sleepdisturb4_p', 'cbcl_q76_p', 'cbcl_q102_p',
-        'cbcl_q01_p', 'cbcl_q61_p', 'famhx_ss_parent_prf_p',
-        'kbi_p_conflict', 'ksads_asd_raw_560_p', 'asr_q120_p',
-        'asr_q116_p', 'sai_ss_basket_nyr_p'
+        'ksads_sleepprob_raw_814_p', 'cbcl_q71_p', 'cbcl_q04_p', 
+        'famhx_ss_parent_prf_p', 'sds_p_ss_does', 'cbcl_q86_p', 
+        'cbcl_q09_p', 'asr_q59_p', 'asr_q47_p', 
+        'cbcl_q112_p', 'sds_p_ss_total', 'cbcl_q22_p'
     ]
     return df[top_vars].dropna()
 
@@ -37,36 +37,36 @@ baseline_df = load_baseline()
 # ----------------------------------------
 # 3. Logistic Regression Coefficients
 # ----------------------------------------
-intercept = -0.5833
+intercept = -0.7132
 
 coefficients = {
-    'cbcl_q24_p': 0.2902,
-    'sleepdisturb4_p': 0.3003,
-    'cbcl_q76_p': 0.1844,
-    'cbcl_q102_p': 0.2228,
-    'cbcl_q01_p': 0.1467,
-    'cbcl_q61_p': 0.0356,
-    'famhx_ss_parent_prf_p': 0.1889,
-    'kbi_p_conflict': 0.1825,
-    'ksads_asd_raw_560_p': 0.1438,
-    'asr_q120_p': 0.1244,
-    'asr_q116_p': 0.1827,
-    'sai_ss_basket_nyr_p': -0.1044
+    'ksads_sleepprob_raw_814_p': 0.1580,
+    'cbcl_q71_p': 0.1264,
+    'cbcl_q04_p': 0.1170,
+    'famhx_ss_parent_prf_p': -0.1068,
+    'sds_p_ss_does': 0.1030,
+    'cbcl_q86_p': 0.1008,
+    'cbcl_q09_p': 0.0986,
+    'asr_q59_p': 0.0963,
+    'asr_q47_p': 0.0947,
+    'cbcl_q112_p': 0.0884,
+    'sds_p_ss_total': 0.0876,
+    'cbcl_q22_p': 0.0864
 }
 
 labels = {
-    'cbcl_q24_p': "Child has poor appetite",
-    'sleepdisturb4_p': "Difficulty falling asleep",
-    'cbcl_q76_p': "Sleeps less than other children",
-    'cbcl_q102_p': "Lacks energy / slow moving",
-    'cbcl_q01_p': "Acts too young for age",
-    'cbcl_q61_p': "Poor school work",
-    'famhx_ss_parent_prf_p': "Parent has psychiatric condition",
-    'kbi_p_conflict': "Family conflict level",
-    'ksads_asd_raw_560_p': "Repetitive behavior (ASD screener)",
-    'asr_q120_p': "Drives too fast (parent self-report)",
-    'asr_q116_p': "Gets upset too easily (parent self-report)",
-    'sai_ss_basket_nyr_p': "Played basketball in past year"
+    'ksads_sleepprob_raw_814_p': "Child has sleep problems (0=No, 1=Yes)",
+    'cbcl_q71_p': "Child is self-conscious/easily embarrassed (0=Not True, 1=Somewhat, 2=Very True)",
+    'cbcl_q04_p': "Child cries a lot (0=Not True, 1=Somewhat, 2=Very True)",
+    'famhx_ss_parent_prf_p': "Parent has history of psychiatric problems (0=No, 1=Yes)",
+    'sds_p_ss_does': "Child's social engagement (1=Never to 5=Always)",
+    'cbcl_q86_p': "Child feels too guilty (0=Not True, 1=Somewhat, 2=Very True)",
+    'cbcl_q09_p': "Child fears doing bad things (0=Not True, 1=Somewhat, 2=Very True)",
+    'asr_q59_p': "Child has somatic complaints (e.g., aches) (0=Not True, 1=Somewhat, 2=Very True)",
+    'asr_q47_p': "Child has anxiety symptoms (e.g., nervousness) (0=Not True, 1=Somewhat, 2=Very True)",
+    'cbcl_q112_p': "Child worries a lot (0=Not True, 1=Somewhat, 2=Very True)",
+    'sds_p_ss_total': "Child's total score of social responsiveness (11-55)",
+    'cbcl_q22_p': "Child feels worthless or inferior (0=Not True, 1=Somewhat, 2=Very True)"
 }
 
 # ----------------------------------------
@@ -78,8 +78,12 @@ for var in coefficients:
     col1, col2 = st.columns([2, 3])
 
     with col1:
-        if var in ['famhx_ss_parent_prf_p', 'ksads_asd_raw_560_p', 'sai_ss_basket_nyr_p']:
-            val = st.selectbox(f"{label} (0 = No, 1 = Yes)", options=[0, 1], index=0, key=var)
+        if var == 'ksads_sleepprob_raw_814_p' or var == 'famhx_ss_parent_prf_p':
+            val = st.selectbox(f"{label}", options=[0, 1], index=0, key=var)
+        elif var == 'sds_p_ss_does':
+            val = st.selectbox(f"{label}", options=[1, 2, 3, 4, 5], index=0, key=var)
+        elif var == 'sds_p_ss_total':
+            val = st.number_input(f"{label}", min_value=11, max_value=55, value=33, step=1, key=var)
         else:
             val = st.selectbox(f"{label}", options=[0, 1, 2], index=0, key=var)
         responses[var] = val
